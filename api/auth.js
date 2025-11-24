@@ -81,9 +81,9 @@ module.exports = async (req, res) => {
 
       const user = users[0];
 
-      // Get password hash from audit_log
+      // Get password hash from audit_log for this specific user
       const auditLogs = await supabaseQuery(
-        `audit_log?action=eq.password_created&order=created_at.desc&limit=1`,
+        `audit_log?action=eq.password_created&details->>email=eq.${encodeURIComponent(email)}&order=created_at.desc&limit=1`,
         {
           headers: {
             'Prefer': 'return=representation'
