@@ -101,10 +101,17 @@ module.exports = async (req, res) => {
       const storedHash = auditLogs[0].details.password_hash;
       const providedHash = hashPassword(password);
 
+      console.log('DEBUG - Email:', email);
+      console.log('DEBUG - Password:', password);
+      console.log('DEBUG - Stored hash:', storedHash);
+      console.log('DEBUG - Provided hash:', providedHash);
+      console.log('DEBUG - Match:', storedHash === providedHash);
+
       if (storedHash !== providedHash) {
         return res.status(401).json({
           success: false,
-          error: 'Invalid credentials'
+          error: 'Invalid credentials',
+          debug: { storedHash, providedHash }
         });
       }
 
