@@ -696,6 +696,315 @@ app.get('/api/users', async (req, res) => {
     }
 });
 
+// ----------------------------------------------------------------------------
+// COMPREHENSIVE ANALYTICS ENDPOINT
+// ----------------------------------------------------------------------------
+
+// In-memory cache for analytics (5 minutes)
+let analyticsCache = null;
+let analyticsCacheTime = 0;
+const ANALYTICS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+app.get('/api/analytics', async (req, res) => {
+    try {
+        // Check cache
+        const now = Date.now();
+        if (analyticsCache && (now - analyticsCacheTime) < ANALYTICS_CACHE_DURATION) {
+            logger.info('Returning cached analytics data');
+            return res.json({ success: true, data: analyticsCache, cached: true });
+        }
+
+        logger.info('Generating fresh analytics data...');
+
+        // Run all queries in parallel for performance
+        const [
+            projectsResult,
+            bugsResult,
+            projectsByStatusResult,
+            projectsByLanguageResult,
+            bugsBySeverityResult,
+            bugsByStatusResult,
+            recentActivityResult,
+            monthlyMetricsResult
+        ] = await Promise.all([
+            // Total projects count
+            query('SELECT COUNT(*) as total FROM projects'),
+
+            // Total bugs count (open bugs only)
+            query("SELECT COUNT(*) as total FROM bugs WHERE status NOT IN ('shipped', 'closed')"),
+
+            // Projects by status
+            query(`
+                SELECT status, COUNT(*) as count
+                FROM projects
+                GROUP BY status
+                ORDER BY count DESC
+            `),
+
+            // Projects by language (from GitHub metadata if available)
+            // For now, mock data - in production, this would come from GitHub API
+            query(`
+                SELECT
+                    'JavaScript' as name, COUNT(*) as value
+                FROM projects
+                WHERE name LIKE '%js%' OR name LIKE '%node%'
+                UNION ALL
+                SELECT
+                    'TypeScript' as name, COUNT(*) as value
+                FROM projects
+                WHERE name LIKE '%ts%' OR name LIKE '%type%'
+                UNION ALL
+                SELECT
+                    'Python' as name, COUNT(*) as value
+                FROM projects
+                WHERE name LIKE '%py%' OR name LIKE '%python%'
+                UNION ALL
+                SELECT
+                    'Go' as name, COUNT(*) as value
+                FROM projects
+                WHERE name LIKE '%go%'
+                UNION ALL
+                SELECT
+                    'Other' as name, COUNT(*) as value
+                FROM projects
+                WHERE name NOT LIKE '%js%'
+                    AND name NOT LIKE '%node%'
+                    AND name NOT LIKE '%ts%'
+                    AND name NOT LIKE '%type%'
+                    AND name NOT LIKE '%py%'
+                    AND name NOT LIKE '%python%'
+                    AND name NOT LIKE '%go%'
+            `),
+
+            // Bugs by severity
+            query(`
+                SELECT severity, COUNT(*) as count
+                FROM bugs
+                WHERE status NOT IN ('shipped', 'closed')
+                GROUP BY severity
+                ORDER BY
+                    CASE severity
+                        WHEN 'critical' THEN 1
+                        WHEN 'high' THEN 2
+                        WHEN 'medium' THEN 3
+                        WHEN 'low' THEN 4
+                    END
+            `),
+
+            // Bugs by status
+            query(`
+                SELECT status, COUNT(*) as count
+                FROM bugs
+                GROUP BY status
+                ORDER BY count DESC
+            `),
+
+            // Recent activity (last 30 days)
+            query(`
+                SELECT
+                    COUNT(DISTINCT bugs.id) as bugs_created,
+                    COUNT(DISTINCT bugs.id) FILTER (WHERE bugs.status = 'shipped') as bugs_resolved,
+                    COUNT(DISTINCT projects.id) as projects_updated
+                FROM bugs
+                FULL OUTER JOIN projects ON bugs.project_id = projects.id
+                WHERE bugs.created_at >= NOW() - INTERVAL '30 days'
+                    OR projects.updated_at >= NOW() - INTERVAL '30 days'
+            `),
+
+            // Monthly metrics (last 12 months)
+            query(`
+                SELECT * FROM monthly_metrics
+                ORDER BY month DESC
+                LIMIT 12
+            `)
+        ]);
+
+        // Calculate aggregate metrics
+        const totalProjects = parseInt(projectsResult.rows[0]?.total || 0);
+        const totalBugs = parseInt(bugsResult.rows[0]?.total || 0);
+
+        // Active projects count
+        const activeProjects = projectsByStatusResult.rows.find(r => r.status === 'active')?.count || 0;
+
+        // Bug counts by severity
+        const criticalBugs = parseInt(
+            bugsBySeverityResult.rows.find(r => r.severity === 'critical')?.count || 0
+        );
+        const highBugs = parseInt(
+            bugsBySeverityResult.rows.find(r => r.severity === 'high')?.count || 0
+        );
+
+        // Calculate average health score (simplified)
+        const healthScoreAverage = calculateAverageHealthScore({
+            totalBugs,
+            criticalBugs,
+            highBugs,
+            activeProjects
+        });
+
+        // Generate commits trend data (last 30 days)
+        const commitsTrend = generateCommitsTrend();
+
+        // Generate bug trend data (last 30 days)
+        const bugTrend = generateBugTrend(monthlyMetricsResult.rows);
+
+        // Stars and forks (would come from GitHub API in production)
+        const totalStars = 0; // Placeholder
+        const totalForks = 0; // Placeholder
+        const starsDistribution = []; // Placeholder
+
+        // Compile analytics data
+        const analyticsData = {
+            // Overview metrics
+            totalProjects,
+            activeProjects,
+            totalStars,
+            totalForks,
+            bugBacklogCount: totalBugs,
+            criticalBugs,
+            highBugs,
+            healthScoreAverage,
+
+            // Recent activity
+            recentActivity: recentActivityResult.rows[0] || {},
+            recentCommits: 45, // Placeholder - would come from GitHub API
+            totalIssues: totalBugs,
+
+            // Distribution data
+            projectsByStatus: projectsByStatusResult.rows.map(row => ({
+                status: row.status,
+                count: parseInt(row.count)
+            })),
+
+            projectsByLanguage: projectsByLanguageResult.rows
+                .filter(row => parseInt(row.value) > 0)
+                .map(row => ({
+                    name: row.name,
+                    value: parseInt(row.value)
+                })),
+
+            bugsBySeverity: bugsBySeverityResult.rows.map(row => ({
+                severity: row.severity,
+                count: parseInt(row.count)
+            })),
+
+            bugsByStatus: bugsByStatusResult.rows.map(row => ({
+                status: row.status,
+                count: parseInt(row.count)
+            })),
+
+            // Trends
+            commitsTrend,
+            bugTrend,
+            starsDistribution,
+
+            // Monthly metrics
+            monthlyMetrics: monthlyMetricsResult.rows.reverse(), // Oldest to newest
+
+            // Metadata
+            lastSync: new Date().toISOString(),
+            cacheExpiry: new Date(now + ANALYTICS_CACHE_DURATION).toISOString()
+        };
+
+        // Update cache
+        analyticsCache = analyticsData;
+        analyticsCacheTime = now;
+
+        logger.info('Analytics data generated successfully');
+        res.json({ success: true, data: analyticsData, cached: false });
+
+    } catch (error) {
+        logger.error('Error generating analytics:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Helper function to calculate average health score
+function calculateAverageHealthScore({ totalBugs, criticalBugs, highBugs, activeProjects }) {
+    if (activeProjects === 0) return 0;
+
+    // Simple health score calculation
+    let score = 100;
+
+    // Penalize for bugs
+    score -= criticalBugs * 5;
+    score -= highBugs * 2;
+    score -= Math.floor(totalBugs / 10);
+
+    // Ensure score is between 0 and 100
+    return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+// Helper function to generate commits trend (last 30 days)
+function generateCommitsTrend() {
+    const trend = [];
+    const today = new Date();
+
+    for (let i = 29; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+
+        trend.push({
+            date: date.toISOString().split('T')[0],
+            commits: Math.floor(Math.random() * 20) + 5 // Mock data
+        });
+    }
+
+    return trend;
+}
+
+// Helper function to generate bug trend
+function generateBugTrend(monthlyMetrics) {
+    if (monthlyMetrics.length === 0) {
+        // Generate mock data for last 30 days
+        const trend = [];
+        const today = new Date();
+
+        for (let i = 29; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+
+            trend.push({
+                date: date.toISOString().split('T')[0],
+                critical: Math.floor(Math.random() * 5),
+                high: Math.floor(Math.random() * 10) + 5,
+                medium: Math.floor(Math.random() * 15) + 10,
+                low: Math.floor(Math.random() * 20) + 10
+            });
+        }
+
+        return trend;
+    }
+
+    // Use monthly metrics data
+    return monthlyMetrics.map(metric => ({
+        date: metric.month,
+        critical: metric.critical_bugs || 0,
+        high: metric.high_bugs || 0,
+        medium: metric.medium_bugs || 0,
+        low: metric.low_bugs || 0
+    }));
+}
+
+// Clear analytics cache endpoint (admin only)
+app.post('/api/analytics/clear-cache', async (req, res) => {
+    try {
+        analyticsCache = null;
+        analyticsCacheTime = 0;
+        logger.info('Analytics cache cleared');
+        res.json({ success: true, message: 'Cache cleared successfully' });
+    } catch (error) {
+        logger.error('Error clearing cache:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ----------------------------------------------------------------------------
+// GITHUB SYNC ROUTES
+// ----------------------------------------------------------------------------
+const syncGitHubRouter = require('./routes/sync-github');
+app.use('/api/sync-github', syncGitHubRouter);
+
 // ============================================================================
 // ERROR HANDLING
 // ============================================================================

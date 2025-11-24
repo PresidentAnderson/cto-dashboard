@@ -1,0 +1,6 @@
+name,description,github_url,demo_url,tags,language,stars,status
+,Missing name project,https://github.com/user/repo,https://demo.com,"tag1,tag2",JavaScript,10,active
+Valid Project,This one is fine,https://github.com/user/valid,https://valid.com,"react,node",TypeScript,50,shipped
+Bad URL Project,Invalid URLs here,not-a-valid-url,also-not-valid,"python,api",Python,20,active
+Invalid Status,Wrong status value,https://github.com/user/repo,https://demo.com,"java,spring",Java,15,invalid-status
+Negative Stars,This has negative stars,https://github.com/user/repo,https://demo.com,"ruby,rails",Ruby,-5,active

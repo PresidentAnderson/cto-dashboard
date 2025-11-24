@@ -14,6 +14,10 @@
       "destination": "/api/auth.js"
     },
     {
+      "source": "/api/import-csv",
+      "destination": "/api/import-csv.js"
+    },
+    {
       "source": "/api/import/:path*",
       "destination": "/api/import.js"
     },

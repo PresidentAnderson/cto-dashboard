@@ -1,0 +1,6 @@
+name,description,github_url,demo_url,tags,language,stars,status
+Awesome Project,A comprehensive project management tool with real-time collaboration,https://github.com/yourorg/awesome-project,https://awesome-project.vercel.app,"react,typescript,api",TypeScript,42,active
+Cool Mobile App,Cross-platform mobile app built with React Native,https://github.com/yourorg/cool-app,https://coolapp.com,"react-native,mobile,ios,android",JavaScript,128,shipped
+AI Assistant,AI-powered chatbot using OpenAI GPT-4,https://github.com/yourorg/ai-assistant,https://ai-assistant.com,"ai,gpt,chatbot,nodejs",Python,256,active
+E-commerce Platform,Full-stack e-commerce solution with payment integration,https://github.com/yourorg/ecommerce,https://shop.example.com,"ecommerce,stripe,nextjs",TypeScript,512,shipped
+Analytics Dashboard,Real-time analytics dashboard with beautiful visualizations,https://github.com/yourorg/analytics,,charts,recharts,dashboard,React,89,active

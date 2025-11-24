@@ -1,0 +1,308 @@
+// Prisma Schema for CTO Dashboard v2.0
+// PostgreSQL Database with comprehensive tracking for projects, bugs, metrics, and GitHub sync
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  extensions = [uuidOssp(map: "uuid-ossp"), pgTrgm]
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum BugSeverity {
+  critical
+  high
+  medium
+  low
+}
+
+enum BugStatus {
+  pending
+  in_progress
+  verified
+  shipped
+  closed
+  deferred
+}
+
+enum ProjectStatus {
+  active
+  shipped
+  deferred
+  cancelled
+}
+
+enum UserRole {
+  cto
+  manager
+  engineer
+  senior_engineer
+  qa_engineer
+}
+
+enum ImportSource {
+  csv
+  github
+  manual
+}
+
+// ============================================================================
+// USERS - Authentication and User Management
+// ============================================================================
+
+model User {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email         String   @unique @db.VarChar(255)
+  name          String   @db.VarChar(255)
+  role          UserRole @default(engineer)
+  passwordHash  String?  @map("password_hash") @db.Text
+  avatarUrl     String?  @map("avatar_url") @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  assignedBugs  Bug[]        @relation("AssignedBugs")
+  createdBugs   Bug[]        @relation("CreatedBugs")
+  bugHistory    BugHistory[]
+  auditLogs     AuditLog[]
+
+  @@index([email])
+  @@map("users")
+}
+
+// ============================================================================
+// PROJECTS - GitHub Repository and Portfolio Management
+// ============================================================================
+
+model Project {
+  id                    String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                  String         @db.VarChar(255)
+  description           String?        @db.Text
+  githubUrl             String?        @unique @map("github_url") @db.Text
+  demoUrl               String?        @map("demo_url") @db.Text
+  language              String?        @db.VarChar(100)
+  tags                  String[]       @db.VarChar(50)
+  stars                 Int?           @default(0)
+  forks                 Int?           @default(0)
+  lastCommit            DateTime?      @map("last_commit")
+  status                ProjectStatus  @default(active)
+
+  // Complexity & Appeal (for prioritization matrix)
+  complexity            Int?           @db.Integer
+  clientAppeal          Int?           @map("client_appeal") @db.Integer
+
+  // Milestones
+  currentMilestone      Int            @default(0) @map("current_milestone")
+  totalMilestones       Int            @default(0) @map("total_milestones")
+
+  // Financial metrics
+  arr                   Decimal?       @db.Decimal(12, 2)
+  year1Revenue          Decimal?       @map("year1_revenue") @db.Decimal(12, 2)
+  year3Revenue          Decimal?       @map("year3_revenue") @db.Decimal(12, 2)
+  roiScore              Decimal?       @map("roi_score") @db.Decimal(8, 2)
+
+  // Market sizing (for valuation view)
+  tam                   Decimal?       @db.Decimal(15, 2)
+  sam                   Decimal?       @db.Decimal(15, 2)
+  somYear3              Decimal?       @map("som_year3") @db.Decimal(15, 2)
+  tractionMrr           Decimal?       @map("traction_mrr") @db.Decimal(12, 2)
+  marginPercent         Decimal?       @map("margin_percent") @db.Decimal(5, 2)
+  dcfValuation          Decimal?       @map("dcf_valuation") @db.Decimal(15, 2)
+
+  // Infrastructure costs
+  monthlyInfraCost      Decimal?       @map("monthly_infra_cost") @db.Decimal(10, 2)
+
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  bugs                  Bug[]
+  metrics               ProjectMetric[]
+
+  @@index([githubUrl])
+  @@index([status])
+  @@index([language])
+  @@index([complexity])
+  @@index([clientAppeal])
+  @@index([roiScore(sort: Desc)])
+  @@map("projects")
+}
+
+// ============================================================================
+// BUGS - Bug Tracking with SLA and Revenue Impact
+// ============================================================================
+
+model Bug {
+  id                    String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  bugNumber             String       @unique @map("bug_number") @db.VarChar(20)
+  title                 String       @db.VarChar(500)
+  description           String?      @db.Text
+  severity              BugSeverity
+  status                BugStatus    @default(pending)
+  assignedToId          String?      @map("assigned_to") @db.Uuid
+  projectId             String?      @map("project_id") @db.Uuid
+  slaHours              Int          @map("sla_hours")
+  businessImpact        String?      @map("business_impact") @db.Text
+  revenueImpact         Decimal?     @map("revenue_impact_daily") @db.Decimal(12, 2)
+  isBlocker             Boolean      @default(false) @map("is_blocker")
+  priorityScore         Int          @default(50) @map("priority_score")
+  estimatedHours        Decimal?     @map("estimated_hours") @db.Decimal(6, 2)
+  actualHours           Decimal?     @map("actual_hours") @db.Decimal(6, 2)
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @default(now()) @updatedAt @map("updated_at")
+  resolvedAt            DateTime?    @map("resolved_at")
+  createdById           String?      @map("created_by") @db.Uuid
+
+  // Relations
+  assignedTo            User?        @relation("AssignedBugs", fields: [assignedToId], references: [id])
+  createdBy             User?        @relation("CreatedBugs", fields: [createdById], references: [id])
+  project               Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  history               BugHistory[]
+
+  @@index([severity])
+  @@index([status])
+  @@index([assignedToId])
+  @@index([projectId])
+  @@index([createdAt(sort: Desc)])
+  @@index([priorityScore(sort: Desc)])
+  @@index([isBlocker], where: { isBlocker: true })
+  @@map("bugs")
+}
+
+// ============================================================================
+// PROJECT METRICS - Analytics Data for Each Project
+// ============================================================================
+
+model ProjectMetric {
+  id                    String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  projectId             String   @map("project_id") @db.Uuid
+  commitsCount          Int      @default(0) @map("commits_count")
+  contributors          Int      @default(0)
+  linesOfCode           Int      @default(0) @map("lines_of_code")
+  techStack             String[] @map("tech_stack") @db.VarChar(100)
+  healthScore           Int      @default(50) @map("health_score")
+  date                  DateTime @db.Date
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  // Relations
+  project               Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, date])
+  @@index([projectId])
+  @@index([date(sort: Desc)])
+  @@index([healthScore(sort: Desc)])
+  @@map("project_metrics")
+}
+
+// ============================================================================
+// IMPORT LOGS - Track CSV/GitHub Import Operations
+// ============================================================================
+
+model ImportLog {
+  id                    String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  source                ImportSource
+  recordsImported       Int          @default(0) @map("records_imported")
+  recordsFailed         Int          @default(0) @map("records_failed")
+  errors                String[]     @db.Text
+  metadata              Json?        @db.JsonB
+  timestamp             DateTime     @default(now())
+
+  @@index([source])
+  @@index([timestamp(sort: Desc)])
+  @@map("import_logs")
+}
+
+// ============================================================================
+// BUG HISTORY - Track Changes to Bugs
+// ============================================================================
+
+model BugHistory {
+  id                    String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  bugId                 String   @map("bug_id") @db.Uuid
+  fieldChanged          String   @map("field_changed") @db.VarChar(50)
+  oldValue              String?  @map("old_value") @db.Text
+  newValue              String?  @map("new_value") @db.Text
+  changedById           String?  @map("changed_by") @db.Uuid
+  changedAt             DateTime @default(now()) @map("changed_at")
+
+  // Relations
+  bug                   Bug      @relation(fields: [bugId], references: [id], onDelete: Cascade)
+  changedBy             User?    @relation(fields: [changedById], references: [id])
+
+  @@index([bugId])
+  @@index([changedAt(sort: Desc)])
+  @@map("bug_history")
+}
+
+// ============================================================================
+// MONTHLY METRICS - Analytics Trends
+// ============================================================================
+
+model MonthlyMetric {
+  id                    String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  month                 DateTime @unique @db.Date
+  totalBugs             Int      @map("total_bugs")
+  criticalBugs          Int      @map("critical_bugs")
+  highBugs              Int      @map("high_bugs")
+  mediumBugs            Int      @map("medium_bugs")
+  lowBugs               Int      @map("low_bugs")
+  engHours              Decimal  @map("eng_hours") @db.Decimal(10, 2)
+  totalCost             Decimal  @map("total_cost") @db.Decimal(12, 2)
+  revenueImpactDaily    Decimal  @map("revenue_impact_daily") @db.Decimal(12, 2)
+  avgResolutionDays     Decimal? @map("avg_resolution_days") @db.Decimal(6, 2)
+  bugsCreated           Int      @default(0) @map("bugs_created")
+  bugsResolved          Int      @default(0) @map("bugs_resolved")
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  @@index([month(sort: Desc)])
+  @@map("monthly_metrics")
+}
+
+// ============================================================================
+// PORTFOLIO METRICS - Portfolio Snapshot
+// ============================================================================
+
+model PortfolioMetric {
+  id                    String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  totalProjects         Int      @map("total_projects")
+  shippedProjects       Int      @map("shipped_projects")
+  year3RevenueTotal     Decimal  @map("year3_revenue_total") @db.Decimal(15, 2)
+  portfolioDcfTotal     Decimal  @map("portfolio_dcf_total") @db.Decimal(15, 2)
+  monthlyDepsCost       Decimal  @map("monthly_deps_cost") @db.Decimal(12, 2)
+  snapshotDate          DateTime @default(now()) @map("snapshot_date") @db.Date
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  @@index([snapshotDate(sort: Desc)])
+  @@map("portfolio_metrics")
+}
+
+// ============================================================================
+// AUDIT LOG - System-wide Change Tracking
+// ============================================================================
+
+model AuditLog {
+  id                    String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId                String?  @map("user_id") @db.Uuid
+  action                String   @db.VarChar(100)
+  entityType            String?  @map("entity_type") @db.VarChar(50)
+  entityId              String?  @map("entity_id") @db.Uuid
+  details               Json?    @db.JsonB
+  ipAddress             String?  @map("ip_address") @db.Inet
+  userAgent             String?  @map("user_agent") @db.Text
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user                  User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt(sort: Desc)])
+  @@index([entityType, entityId])
+  @@map("audit_log")
+}

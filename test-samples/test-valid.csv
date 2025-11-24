@@ -1,0 +1,6 @@
+name,description,github_url,demo_url,tags,language,stars,status
+E-Commerce Platform,Full-stack e-commerce solution with Stripe integration,https://github.com/company/ecommerce,https://shop.example.com,"ecommerce,stripe,nextjs,react",TypeScript,512,shipped
+AI Chatbot,GPT-4 powered chatbot with memory and context,https://github.com/company/ai-bot,https://chat.example.com,"ai,gpt,chatbot,openai",Python,256,active
+Analytics Dashboard,Real-time analytics with beautiful charts,https://github.com/company/analytics,https://analytics.example.com,"analytics,charts,dashboard",React,128,active
+Mobile App,Cross-platform mobile app built with React Native,https://github.com/company/mobile-app,,"mobile,react-native,ios,android",JavaScript,89,active
+DevOps Tools,CI/CD pipeline automation tools,https://github.com/company/devops,,devops,automation,cicd,Docker,42,active
