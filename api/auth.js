@@ -1,36 +1,19 @@
 /**
- * Authentication API - Vercel Serverless Function
- * JWT-based authentication with login, register, and session management
+ * Authentication API - Using Supabase REST API
+ * No database connection needed - uses HTTP requests
  */
 
-const { Pool } = require('pg');
 const crypto = require('crypto');
 
-let pool;
-function getPool() {
-  if (!pool) {
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-      max: 10,
-    });
-  }
-  return pool;
-}
-
-async function query(text, params) {
-  const client = getPool();
-  return await client.query(text, params);
-}
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://iithtbuedvwmtbagquxy.supabase.co';
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || 'sb_publishable_0iOb-1Q9NEYpHSiMnoHMLA_8TqslN35';
+const JWT_SECRET = process.env.JWT_SECRET || '9eIYkI29Ui51haY7VtGuXFKg2y+gFWpwruK4y85gBHk=';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
-
-// Simple JWT implementation (in production, use jsonwebtoken library)
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
 
 function createToken(payload) {
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
@@ -42,33 +25,27 @@ function createToken(payload) {
   return `${header}.${body}.${signature}`;
 }
 
-function verifyToken(token) {
-  try {
-    const [header, payload, signature] = token.split('.');
-    const expectedSignature = crypto
-      .createHmac('sha256', JWT_SECRET)
-      .update(`${header}.${payload}`)
-      .digest('base64url');
-
-    if (signature !== expectedSignature) {
-      return null;
-    }
-
-    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString());
-
-    // Check expiration
-    if (decoded.exp && Date.now() >= decoded.exp * 1000) {
-      return null;
-    }
-
-    return decoded;
-  } catch (error) {
-    return null;
-  }
-}
-
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password + JWT_SECRET).digest('hex');
+}
+
+async function supabaseQuery(endpoint, options = {}) {
+  const url = `${SUPABASE_URL}/rest/v1/${endpoint}`;
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      ...options.headers
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Supabase error: ${response.status}`);
+  }
+
+  return await response.json();
 }
 
 module.exports = async (req, res) => {
@@ -81,62 +58,10 @@ module.exports = async (req, res) => {
   const { method } = req;
 
   try {
-    // Register new user
-    if (req.url.includes('/auth/register') && method === 'POST') {
-      const { email, password, name, role = 'engineer' } = req.body;
-
-      // Validation
-      if (!email || !password || !name) {
-        return res.status(400).json({
-          success: false,
-          error: 'Email, password, and name are required'
-        });
-      }
-
-      // Check if user exists
-      const existingUser = await query('SELECT id FROM users WHERE email = $1', [email]);
-      if (existingUser.rows.length > 0) {
-        return res.status(400).json({
-          success: false,
-          error: 'User with this email already exists'
-        });
-      }
-
-      // Hash password
-      const passwordHash = hashPassword(password);
-
-      // Create user
-      const result = await query(
-        'INSERT INTO users (email, name, role) VALUES ($1, $2, $3) RETURNING id, email, name, role',
-        [email, name, role]
-      );
-
-      // Store password hash in audit_log (temporary - add password column in production)
-      await query(
-        'INSERT INTO audit_log (user_id, action, details) VALUES ($1, $2, $3)',
-        [result.rows[0].id, 'password_set', { password_hash: passwordHash }]
-      );
-
-      // Create JWT token
-      const token = createToken({
-        userId: result.rows[0].id,
-        email: result.rows[0].email,
-        role: result.rows[0].role,
-        exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // 7 days
-      });
-
-      return res.status(201).json({
-        success: true,
-        token,
-        user: result.rows[0]
-      });
-    }
-
-    // Login
+    // LOGIN
     if (req.url.includes('/auth/login') && method === 'POST') {
       const { email, password } = req.body;
 
-      // Validation
       if (!email || !password) {
         return res.status(400).json({
           success: false,
@@ -144,42 +69,43 @@ module.exports = async (req, res) => {
         });
       }
 
-      // Find user
-      const userResult = await query(
-        'SELECT id, email, name, role FROM users WHERE email = $1',
-        [email]
-      );
+      // Get user from Supabase
+      const users = await supabaseQuery(`users?email=eq.${encodeURIComponent(email)}`);
 
-      if (userResult.rows.length === 0) {
+      if (users.length === 0) {
         return res.status(401).json({
           success: false,
           error: 'Invalid credentials'
         });
       }
 
-      const user = userResult.rows[0];
+      const user = users[0];
 
       // Get password hash from audit_log
-      const passwordResult = await query(
-        `SELECT details FROM audit_log
-         WHERE user_id = $1 AND action = 'password_set'
-         ORDER BY created_at DESC LIMIT 1`,
-        [user.id]
+      const auditLogs = await supabaseQuery(
+        `audit_log?action=eq.password_created&order=created_at.desc&limit=1`,
+        {
+          headers: {
+            'Prefer': 'return=representation'
+          }
+        }
       );
 
-      if (passwordResult.rows.length === 0) {
-        // No password set - for demo, allow login
-        // In production, this should return an error
-      } else {
-        const storedHash = passwordResult.rows[0].details.password_hash;
-        const providedHash = hashPassword(password);
+      if (auditLogs.length === 0) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid credentials'
+        });
+      }
 
-        if (storedHash !== providedHash) {
-          return res.status(401).json({
-            success: false,
-            error: 'Invalid credentials'
-          });
-        }
+      const storedHash = auditLogs[0].details.password_hash;
+      const providedHash = hashPassword(password);
+
+      if (storedHash !== providedHash) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid credentials'
+        });
       }
 
       // Create JWT token
@@ -190,89 +116,100 @@ module.exports = async (req, res) => {
         exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // 7 days
       });
 
-      // Log login
-      await query(
-        'INSERT INTO audit_log (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
-        [user.id, 'user_login', { timestamp: new Date().toISOString() }, req.headers['x-forwarded-for'] || req.connection.remoteAddress]
-      );
-
       return res.status(200).json({
         success: true,
         token,
-        user
-      });
-    }
-
-    // Verify token (get current user)
-    if (req.url.includes('/auth/me') && method === 'GET') {
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({
-          success: false,
-          error: 'No token provided'
-        });
-      }
-
-      const token = authHeader.split(' ')[1];
-      const decoded = verifyToken(token);
-
-      if (!decoded) {
-        return res.status(401).json({
-          success: false,
-          error: 'Invalid or expired token'
-        });
-      }
-
-      // Get fresh user data
-      const userResult = await query(
-        'SELECT id, email, name, role, avatar_url FROM users WHERE id = $1',
-        [decoded.userId]
-      );
-
-      if (userResult.rows.length === 0) {
-        return res.status(401).json({
-          success: false,
-          error: 'User not found'
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
-        user: userResult.rows[0]
-      });
-    }
-
-    // Logout (client-side only - remove token)
-    if (req.url.includes('/auth/logout') && method === 'POST') {
-      // Log logout
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.split(' ')[1];
-        const decoded = verifyToken(token);
-        if (decoded) {
-          await query(
-            'INSERT INTO audit_log (user_id, action, details) VALUES ($1, $2, $3)',
-            [decoded.userId, 'user_logout', { timestamp: new Date().toISOString() }]
-          );
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          avatar_url: user.avatar_url
         }
+      });
+    }
+
+    // REGISTER
+    if (req.url.includes('/auth/register') && method === 'POST') {
+      const { email, password, name, role = 'engineer' } = req.body;
+
+      if (!email || !password || !name) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email, password, and name are required'
+        });
       }
 
-      return res.status(200).json({
+      // Check if user exists
+      const existingUsers = await supabaseQuery(`users?email=eq.${encodeURIComponent(email)}`);
+
+      if (existingUsers.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'User already exists'
+        });
+      }
+
+      // Create user
+      const newUsers = await supabaseQuery('users', {
+        method: 'POST',
+        headers: {
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({
+          email,
+          name,
+          role
+        })
+      });
+
+      const newUser = newUsers[0];
+
+      // Store password hash in audit_log
+      const passwordHash = hashPassword(password);
+      await supabaseQuery('audit_log', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'password_created',
+          entity_type: 'user',
+          entity_id: newUser.id,
+          details: {
+            email,
+            password_hash: passwordHash
+          }
+        })
+      });
+
+      // Create JWT token
+      const token = createToken({
+        userId: newUser.id,
+        email: newUser.email,
+        role: newUser.role,
+        exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60)
+      });
+
+      return res.status(201).json({
         success: true,
-        message: 'Logged out successfully'
+        token,
+        user: {
+          id: newUser.id,
+          email: newUser.email,
+          name: newUser.name,
+          role: newUser.role
+        }
       });
     }
 
     return res.status(404).json({
       success: false,
-      error: 'Auth endpoint not found'
+      error: 'Endpoint not found'
     });
 
   } catch (error) {
     console.error('Auth error:', error);
     return res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message || 'Internal server error'
     });
   }
 };

@@ -8,6 +8,20 @@
       "maxDuration": 10
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/daily",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/hourly",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/weekly",
+      "schedule": "0 9 * * 1"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/auth/:path*",

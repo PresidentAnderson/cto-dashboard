@@ -1,0 +1,11 @@
+bugNumber,title,description,severity,status,assignedTo,projectName,slaHours,businessImpact,revenueImpact,isBlocker,priorityScore,estimatedHours,actualHours,resolvedAt
+BUG-202511-0001,Login authentication fails,Users cannot authenticate with OAuth providers. Multiple reports from production.,critical,in_progress,john.doe@example.com,E-Commerce Platform,4,Payment flow blocked - cannot process transactions,5000,true,95,8,6.5,
+BUG-202511-0002,Search results pagination broken,Pagination on search results page skips items on page 2 and 3,high,pending,jane.smith@example.com,E-Commerce Platform,24,Poor user experience affecting product discovery,500,false,75,4,,,
+BUG-202511-0003,API rate limiting too aggressive,API returns 429 errors even under normal load conditions,high,in_progress,bob.wilson@example.com,Bug Tracker API,24,Third-party integrations failing,1000,false,80,6,4.0,
+BUG-202511-0004,Mobile app crashes on iOS 17,App crashes on launch for iOS 17.2 and above. Critical for app store rating.,critical,pending,alice.johnson@example.com,Mobile CRM App,4,Cannot access app - blocks all iOS 17 users,3000,true,98,12,,
+BUG-202511-0005,Dashboard charts not rendering,D3.js charts fail to render on Firefox browser,medium,verified,charlie.brown@example.com,Analytics Dashboard,72,Limited browser support,200,false,55,3,2.5,2025-11-22
+BUG-202511-0006,Export CSV missing columns,CSV export missing last 3 columns of data,medium,shipped,diana.prince@example.com,Analytics Dashboard,72,Data export incomplete,100,false,50,2,1.5,2025-11-21
+BUG-202511-0007,Payment retry logic fails,Failed payments not retrying as configured in settings,high,in_progress,evan.peters@example.com,Payment Gateway,24,Revenue loss from failed retries,2000,false,85,8,5.0,
+BUG-202511-0008,Memory leak in background worker,Worker process consuming excessive memory over time,medium,pending,frank.castle@example.com,Bug Tracker API,72,Server performance degradation,300,false,60,6,,
+BUG-202511-0009,UI button alignment off by 2px,Submit button misaligned on checkout page,low,deferred,,,168,Minor visual issue,0,false,20,0.5,,
+BUG-202511-0010,Email notifications delayed,Email notifications sending 15-20 minutes late,medium,closed,grace.hopper@example.com,E-Commerce Platform,72,Customer complaints about delayed order confirmations,150,false,65,4,3.0,2025-11-20
