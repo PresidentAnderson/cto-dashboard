@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import './App.css';
 import Login from './Login';
+import ImportModal from './ImportModal';
 
 // API URL - uses same domain when deployed to Vercel, localhost for development
 const API_URL = import.meta.env.VITE_API_URL || (
@@ -158,6 +159,7 @@ const BugTracker = () => {
     blocker: false,
   });
   const [costAnalysis, setCostAnalysis] = useState(null);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   useEffect(() => {
     fetchBugs();
@@ -179,6 +181,12 @@ const BugTracker = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleImportComplete = () => {
+    fetchBugs();
+    fetchCostAnalysis();
+    setShowImportModal(false);
   };
 
   const fetchCostAnalysis = async () => {
@@ -236,9 +244,20 @@ const BugTracker = () => {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Filters and Actions */}
       <div className="bg-white rounded-lg border-2 border-gray-200 p-4">
-        <h3 className="text-lg font-semibold mb-3">Filter & Sort</h3>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-lg font-semibold">Filter & Sort</h3>
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            Import Bugs
+          </button>
+        </div>
         <div className="flex flex-wrap gap-3">
           <select
             className="border border-gray-300 rounded px-3 py-2"
@@ -383,6 +402,7 @@ const ProjectPortfolio = () => {
   const [projects, setProjects] = useState([]);
   const [viewMode, setViewMode] = useState('matrix'); // 'matrix', 'table', 'valuation'
   const [loading, setLoading] = useState(true);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   useEffect(() => {
     fetchProjects();
@@ -398,6 +418,11 @@ const ProjectPortfolio = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleImportComplete = () => {
+    fetchProjects();
+    setShowImportModal(false);
   };
 
   const portfolioMetrics = projects.reduce(
@@ -443,29 +468,49 @@ const ProjectPortfolio = () => {
         />
       </div>
 
-      {/* View Mode Selector */}
+      {/* View Mode Selector and Actions */}
       <div className="bg-white rounded-lg border-2 border-gray-200 p-4">
-        <div className="flex gap-3">
+        <div className="flex justify-between items-center">
+          <div className="flex gap-3">
+            <button
+              className={`px-4 py-2 rounded ${viewMode === 'matrix' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+              onClick={() => setViewMode('matrix')}
+            >
+              📊 Prioritization Matrix
+            </button>
+            <button
+              className={`px-4 py-2 rounded ${viewMode === 'table' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+              onClick={() => setViewMode('table')}
+            >
+              📋 Detailed Table
+            </button>
+            <button
+              className={`px-4 py-2 rounded ${viewMode === 'valuation' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+              onClick={() => setViewMode('valuation')}
+            >
+              💰 Valuation & Market
+            </button>
+          </div>
+
           <button
-            className={`px-4 py-2 rounded ${viewMode === 'matrix' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-            onClick={() => setViewMode('matrix')}
+            onClick={() => setShowImportModal(true)}
+            className="px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
           >
-            📊 Prioritization Matrix
-          </button>
-          <button
-            className={`px-4 py-2 rounded ${viewMode === 'table' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-            onClick={() => setViewMode('table')}
-          >
-            📋 Detailed Table
-          </button>
-          <button
-            className={`px-4 py-2 rounded ${viewMode === 'valuation' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-            onClick={() => setViewMode('valuation')}
-          >
-            💰 Valuation & Market
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            Import Projects
           </button>
         </div>
       </div>
+
+      {showImportModal && (
+        <ImportModal
+          type="projects"
+          onClose={() => setShowImportModal(false)}
+          onImportComplete={handleImportComplete}
+        />
+      )}
 
       {/* Prioritization Matrix */}
       {viewMode === 'matrix' && (
@@ -689,6 +734,14 @@ const ProjectPortfolio = () => {
             </ul>
           </div>
         </div>
+      )}
+
+      {showImportModal && (
+        <ImportModal
+          type="bugs"
+          onClose={() => setShowImportModal(false)}
+          onImportComplete={handleImportComplete}
+        />
       )}
     </div>
   );
