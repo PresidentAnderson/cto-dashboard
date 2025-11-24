@@ -3,14 +3,14 @@
 /**
  * Import Local Project Data
  * Imports project data from github-repos-data.json directly to database
- * No API server needed - runs locally with direct database connection
  */
 
 const fs = require('fs');
 const path = require('path');
+const { Pool } = require('pg');
 
-// Read .env.local manually to avoid dotenv dependency
-const envPath = path.join(__dirname, '.env.local');
+// Read .env.local from parent directory
+const envPath = path.join(__dirname, '..', '.env.local');
 const envContent = fs.readFileSync(envPath, 'utf-8');
 const envVars = {};
 
@@ -28,9 +28,6 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
-// Use pg from backend with absolute path
-const { Pool } = require(path.join(__dirname, 'backend', 'node_modules', 'pg'));
-
 // Database connection
 const pool = new Pool({
   connectionString: DATABASE_URL,
@@ -44,8 +41,8 @@ async function importProjects() {
   console.log('═'.repeat(50));
 
   try {
-    // Read JSON file
-    const dataPath = path.join(__dirname, 'github-repos-data.json');
+    // Read JSON file from parent directory
+    const dataPath = path.join(__dirname, '..', 'github-repos-data.json');
     console.log(`\n📖 Reading: ${dataPath}`);
 
     if (!fs.existsSync(dataPath)) {
