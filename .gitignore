@@ -31,3 +31,4 @@ postgres_data/
 *.log
 combined.log
 error.log
+.vercel
