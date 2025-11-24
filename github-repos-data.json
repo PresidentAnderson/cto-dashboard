@@ -1,0 +1,125 @@
+{
+  "format": "json",
+  "projects": [
+    {
+      "name": "lexchronos-enterprise",
+      "description": "LexChronos - Enterprise Legal Case Management SaaS Platform with Zero Trust Security",
+      "status": "active",
+      "complexity": 5,
+      "client_appeal": 9,
+      "year3_revenue": 5000000,
+      "roi_score": 105,
+      "tam": 50000000000,
+      "sam": 8000000000,
+      "som_year3": 400000000
+    },
+    {
+      "name": "attorney-accountability",
+      "description": "Public database of attorney disciplinary records",
+      "status": "shipped",
+      "complexity": 4,
+      "client_appeal": 7,
+      "year3_revenue": 500000,
+      "roi_score": 90,
+      "tam": 50000000000,
+      "sam": 8000000000,
+      "som_year3": 400000000
+    },
+    {
+      "name": "aurora-booking-engine",
+      "description": "AI-driven, embeddable booking engine for hotels, hostels, and resorts — white-label, multi-language, commission-free",
+      "status": "active",
+      "complexity": 5,
+      "client_appeal": 9,
+      "year3_revenue": 5000000,
+      "roi_score": 105,
+      "tam": 30000000000,
+      "sam": 5000000000,
+      "som_year3": 250000000
+    },
+    {
+      "name": "checkin.pvthostel.com",
+      "description": "Check-in system for PVT Hostel",
+      "status": "shipped",
+      "complexity": 3,
+      "client_appeal": 8,
+      "year3_revenue": 500000,
+      "roi_score": 90,
+      "tam": 30000000000,
+      "sam": 5000000000,
+      "som_year3": 250000000
+    },
+    {
+      "name": "travelle-ride-sharing",
+      "description": "Ride sharing platform",
+      "status": "active",
+      "complexity": 4,
+      "client_appeal": 5,
+      "year3_revenue": 2000000,
+      "roi_score": 80,
+      "tam": 20000000000,
+      "sam": 3000000000,
+      "som_year3": 150000000
+    },
+    {
+      "name": "Atlas-Inventory-Management-Software",
+      "description": "Atlas Inventory Management Software",
+      "status": "active",
+      "complexity": 4,
+      "client_appeal": 8,
+      "year3_revenue": 3000000,
+      "roi_score": 95,
+      "tam": 20000000000,
+      "sam": 3000000000,
+      "som_year3": 150000000
+    },
+    {
+      "name": "axai-innovation-suite",
+      "description": "AI Innovation Suite",
+      "status": "active",
+      "complexity": 5,
+      "client_appeal": 5,
+      "year3_revenue": 5000000,
+      "roi_score": 100,
+      "tam": 20000000000,
+      "sam": 3000000000,
+      "som_year3": 150000000
+    },
+    {
+      "name": "wisdomos-documentation",
+      "description": "WisdomOS Documentation - Internal guides and specifications",
+      "status": "active",
+      "complexity": 2,
+      "client_appeal": 8,
+      "year3_revenue": 0,
+      "roi_score": 70,
+      "tam": 5000000000,
+      "sam": 800000000,
+      "som_year3": 50000000
+    },
+    {
+      "name": "wisdomos-infrastructure",
+      "description": "WisdomOS Infrastructure - Docker, K8s, and deployment configs",
+      "status": "active",
+      "complexity": 4,
+      "client_appeal": 9,
+      "year3_revenue": 3000000,
+      "roi_score": 105,
+      "tam": 5000000000,
+      "sam": 800000000,
+      "som_year3": 50000000
+    },
+    {
+      "name": "wisdomos-desktop",
+      "description": "WisdomOS Desktop - Electron app for Phoenix transformation",
+      "status": "active",
+      "complexity": 4,
+      "client_appeal": 8,
+      "year3_revenue": 3000000,
+      "roi_score": 100,
+      "tam": 5000000000,
+      "sam": 800000000,
+      "som_year3": 50000000
+    }
+  ]
+}
