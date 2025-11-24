@@ -172,7 +172,7 @@ model Bug {
   @@index([projectId])
   @@index([createdAt(sort: Desc)])
   @@index([priorityScore(sort: Desc)])
-  @@index([isBlocker], where: { isBlocker: true })
+  @@index([isBlocker])
   @@map("bugs")
 }
 
@@ -305,4 +305,65 @@ model AuditLog {
   @@index([createdAt(sort: Desc)])
   @@index([entityType, entityId])
   @@map("audit_log")
+}
+
+// ============================================================================
+// CRON JOB TRACKING - Job History and Monitoring
+// ============================================================================
+
+enum JobStatus {
+  pending
+  running
+  completed
+  failed
+  timeout
+}
+
+enum JobType {
+  daily_sync
+  hourly_metrics
+  weekly_report
+  manual_trigger
+}
+
+model JobHistory {
+  id                    String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  jobType               JobType   @map("job_type")
+  status                JobStatus @default(pending)
+  startedAt             DateTime  @default(now()) @map("started_at")
+  completedAt           DateTime? @map("completed_at")
+  executionTimeMs       Int?      @map("execution_time_ms")
+  attempt               Int       @default(1)
+  maxAttempts           Int       @default(3) @map("max_attempts")
+  errorMessage          String?   @map("error_message") @db.Text
+  errorStack            String?   @map("error_stack") @db.Text
+  result                Json?     @db.JsonB
+  triggeredBy           String?   @map("triggered_by") @db.VarChar(100)
+  metadata              Json?     @db.JsonB
+
+  @@index([jobType])
+  @@index([status])
+  @@index([startedAt(sort: Desc)])
+  @@index([jobType, status])
+  @@map("job_history")
+}
+
+model SyncEvent {
+  id                    String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  eventType             String    @map("event_type") @db.VarChar(100)
+  source                String?   @db.VarChar(100)
+  status                String    @db.VarChar(50)
+  message               String?   @db.Text
+  details               Json?     @db.JsonB
+  duration              Int?      @db.Integer
+  recordsProcessed      Int?      @default(0) @map("records_processed")
+  recordsFailed         Int?      @default(0) @map("records_failed")
+  timestamp             DateTime  @default(now())
+  jobId                 String?   @map("job_id") @db.Uuid
+
+  @@index([eventType])
+  @@index([status])
+  @@index([timestamp(sort: Desc)])
+  @@index([jobId])
+  @@map("sync_events")
 }
