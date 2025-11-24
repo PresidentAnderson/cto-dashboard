@@ -10,6 +10,14 @@
   },
   "rewrites": [
     {
+      "source": "/api/auth/:path*",
+      "destination": "/api/auth.js"
+    },
+    {
+      "source": "/api/import/:path*",
+      "destination": "/api/import.js"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/index.js"
     },

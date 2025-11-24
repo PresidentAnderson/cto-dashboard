@@ -5,6 +5,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell
 } from 'recharts';
 import './App.css';
+import Login from './Login';
 
 // API URL - uses same domain when deployed to Vercel, localhost for development
 const API_URL = import.meta.env.VITE_API_URL || (
@@ -928,12 +929,44 @@ const Analytics = () => {
 function App() {
   const [currentTab, setCurrentTab] = useState('overview');
   const [kpis, setKpis] = useState({});
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Check if user is logged in on mount
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      // Verify token with backend
+      fetch(`${API_URL}/api/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            setUser(data.user);
+          } else {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+          }
+          setLoading(false);
+        })
+        .catch(() => {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetchKPIs();
-    const interval = setInterval(fetchKPIs, 30000); // Refresh every 30s
-    return () => clearInterval(interval);
-  }, []);
+    if (user) {
+      fetchKPIs();
+      const interval = setInterval(fetchKPIs, 30000); // Refresh every 30s
+      return () => clearInterval(interval);
+    }
+  }, [user]);
 
   const fetchKPIs = async () => {
     try {
@@ -944,52 +977,90 @@ function App() {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+  };
+
+  // Show loading spinner while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login if not authenticated
+  if (!user) {
+    return <Login onLogin={setUser} />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Navigation */}
       <div className="bg-white border-b-2 border-gray-200 shadow-sm sticky top-0 z-50">
         <div className="container mx-auto px-4">
-          <div className="flex gap-2 py-4">
-            <button
-              className={`px-6 py-3 rounded-lg font-medium transition-all ${
-                currentTab === 'overview'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-              onClick={() => setCurrentTab('overview')}
-            >
-              🏠 Overview
-            </button>
-            <button
-              className={`px-6 py-3 rounded-lg font-medium transition-all ${
-                currentTab === 'bugs'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-              onClick={() => setCurrentTab('bugs')}
-            >
-              🐛 Bug Tracker
-            </button>
-            <button
-              className={`px-6 py-3 rounded-lg font-medium transition-all ${
-                currentTab === 'projects'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-              onClick={() => setCurrentTab('projects')}
-            >
-              📁 Projects
-            </button>
-            <button
-              className={`px-6 py-3 rounded-lg font-medium transition-all ${
-                currentTab === 'analytics'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-              onClick={() => setCurrentTab('analytics')}
-            >
-              📈 Analytics
-            </button>
+          <div className="flex justify-between items-center py-4">
+            <div className="flex gap-2">
+              <button
+                className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                  currentTab === 'overview'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+                onClick={() => setCurrentTab('overview')}
+              >
+                🏠 Overview
+              </button>
+              <button
+                className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                  currentTab === 'bugs'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+                onClick={() => setCurrentTab('bugs')}
+              >
+                🐛 Bug Tracker
+              </button>
+              <button
+                className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                  currentTab === 'projects'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+                onClick={() => setCurrentTab('projects')}
+              >
+                📁 Projects
+              </button>
+              <button
+                className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                  currentTab === 'analytics'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+                onClick={() => setCurrentTab('analytics')}
+              >
+                📈 Analytics
+              </button>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">{user.name}</span>
+                <span className="text-gray-400 ml-2">({user.role})</span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </div>
