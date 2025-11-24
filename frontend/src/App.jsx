@@ -6,7 +6,12 @@ import {
 } from 'recharts';
 import './App.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// API URL - uses same domain when deployed to Vercel, localhost for development
+const API_URL = import.meta.env.VITE_API_URL || (
+  typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? '' // Same domain (Vercel routes /api to serverless function)
+    : 'http://localhost:5000'
+);
 
 // ============================================================================
 // UTILITY COMPONENTS
